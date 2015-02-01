@@ -1,0 +1,6 @@
+[submodule "lib/getID3"]
+	path = lib/getID3
+	url = git@github.com:JamesHeinrich/getID3.git
+[submodule "lib/PHP-GetOpts"]
+	path = lib/PHP-GetOpts
+	url = git@github.com:angrychimp/PHP-GetOpts.git
