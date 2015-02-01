@@ -25,6 +25,10 @@ $opts = getopts($optArray, $argv);
 //$file = implode(' ', $argv);
 $file = $opts['cmdline'][0];
 
+if (!$opts['dateFormat']) {
+    $opts['dateFormat'] = 'Y/m';
+}
+
 if (!file_exists($file)) {
     if (strlen($file)) {
         echo "File does not exist! $file\n";
@@ -42,7 +46,7 @@ if (!is_dir($file)) {
     $iter = new RecursiveIteratorIterator($dir);
     $filter = new UserFilter($iter);
     foreach ($filter as $val) {
-        $files[$val->getFilename()][] = $val->getPathName();
+        $files[] = $val->getPathName();
     }
 }
 
@@ -64,36 +68,61 @@ if ($opts['action'] == 'copy' || $opts['action'] == 'move') {
             @mkdir($opts['target'], 0775, true);
         }
     }
+
+    // keep track of which target files we've used
+    // (this lets us avoid target collisions)
+    $targets = array();
+
+    // Strip any trailing slash on the target folder
+    $opts['target'] = rtrim($opts['target'], '/');
 }
 
-var_dump($opts['target']); exit;
-
 $id = new getID3();
-foreach ($files as $farray) {
-    foreach ($farray as $i => $file) {
-        $info = @$id->analyze($file);
-        @getid3_lib::CopyTagsToComments($info);
+foreach ($files as $file) {
+    $info = @$id->analyze($file);
+    @getid3_lib::CopyTagsToComments($info);
 
-        switch ($opts['action']) {
-            case 'show': case 'info': case 'show-info':
-                var_dump($info);
-                break;
-            case 'move': case 'copy':
-                if ($opts['dry']) {
-                    // just report where we're moving things
-
+    switch ($opts['action']) {
+        case 'show': case 'info': case 'show-info':
+            var_dump($info);
+            break;
+        case 'move': case 'copy':
+            $targetName = '';
+            if (!isset($info['fileformat'])) {
+                $targetName = '<ignore>';
+            } else {
+                $time = getFileTime($info);
+                $targetName = implode(DIRECTORY_SEPARATOR, array(date($opts['dateFormat'], $time), basename($file)));
+                $targets[$targetName]++;
+                
+                if ($targets[$targetName] > 1) {
+                    $base = basename($file, '.'.$info['fileformat']);
+                    $targetName = sprintf('%s.%d.%s', $base, ($targets[$targetName]-1), $info['fileformat']);
+                    $targetName = implode(DIRECTORY_SEPARATOR, array(date($opts['dateFormat'], $time), $targetName));
                 }
-                break;
-            default:
-                $out = array ($info['filename'], $info['fileformat'], realpath(dirname($file)));
-                if (!isset($info['fileformat'])) {
-                    $out[] = '**';
+                
+                // now add the target path
+                $targetName = $opts['target'] . DIRECTORY_SEPARATOR . $targetName;
+            }
+
+            if ($opts['dry']) {
+                // just report where we're moving things
+                if ($targetName == '<ignore>') {
+                    echo "  $file $targetName\n";
                 } else {
-                    $out[] = date('Y/m', getFileTime($info));
+                    echo "`$file` -> `$targetName`\n";
                 }
-                echo implode("\t", $out) . "\n";
-                break;
-        }
+            }
+            break;
+        default:
+            $out = array ($info['filename'], $info['fileformat'], realpath(dirname($file)));
+            if (!isset($info['fileformat'])) {
+                $out[] = '**';
+            } else {
+                $out[] = date('Y/m', getFileTime($info));
+            }
+            echo implode("\t", $out) . "\n";
+            break;
     }
 }
 
