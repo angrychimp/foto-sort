@@ -1,0 +1,129 @@
+#!/usr/bin/env php
+<?php
+
+set_include_path(get_include_path() . PATH_SEPARATOR . __DIR__ . '/lib');
+
+require_once('getID3/getid3/getid3.php');
+require_once('PHP-GetOpts/getopts.php');
+
+class UserFilter extends FilterIterator {
+    private $userFilter;
+    public function accept() {
+        $val = $this->getInnerIterator()->current();
+        return is_file($val);
+    }
+}
+
+$optArray = array (
+    'action' => array ('switch' => array('a','action'), 'type' => GETOPT_VAL),
+    'target' => array ('switch' => array('t','target'), 'type' => GETOPT_VAL),
+    'dry'    => array ('switch' => array('n','dry-run'), 'type' => GETOPT_SWITCH),
+);
+
+$opts = getopts($optArray, $argv);
+
+//$file = implode(' ', $argv);
+$file = $opts['cmdline'][0];
+
+if (!file_exists($file)) {
+    if (strlen($file)) {
+        echo "File does not exist! $file\n";
+    } else {
+        echo "No file specified!\n";
+    }
+    exit;
+}
+
+$files = array();
+if (!is_dir($file)) {
+    $files[basename($file)] = array($file);
+} else {
+    $dir = new RecursiveDirectoryIterator($file);
+    $iter = new RecursiveIteratorIterator($dir);
+    $filter = new UserFilter($iter);
+    foreach ($filter as $val) {
+        $files[$val->getFilename()][] = $val->getPathName();
+    }
+}
+
+// if we're moving/copying files, make sure the target exists
+if ($opts['action'] == 'copy' || $opts['action'] == 'move') {
+    if (!$opts['target']) {
+        echo "Error: no target specified for {$opts['action']}\n";
+        exit;
+    }
+    // do tilde substitution if necessary
+    if (strpos($opts['target'], '~') !== false) {
+        $opts['target'] = preg_replace('/.*~/', $_ENV['HOME'], $opts['target']);
+    }
+    if (!is_dir($opts['target'])) {
+        if (file_exists($opts['target'])) {
+            echo "Error: target exists but is not a directory: {$opts['target']}\n";
+            exit;
+        } else {
+            @mkdir($opts['target'], 0775, true);
+        }
+    }
+}
+
+var_dump($opts['target']); exit;
+
+$id = new getID3();
+foreach ($files as $farray) {
+    foreach ($farray as $i => $file) {
+        $info = @$id->analyze($file);
+        @getid3_lib::CopyTagsToComments($info);
+
+        switch ($opts['action']) {
+            case 'show': case 'info': case 'show-info':
+                var_dump($info);
+                break;
+            case 'move': case 'copy':
+                if ($opts['dry']) {
+                    // just report where we're moving things
+
+                }
+                break;
+            default:
+                $out = array ($info['filename'], $info['fileformat'], realpath(dirname($file)));
+                if (!isset($info['fileformat'])) {
+                    $out[] = '**';
+                } else {
+                    $out[] = date('Y/m', getFileTime($info));
+                }
+                echo implode("\t", $out) . "\n";
+                break;
+        }
+    }
+}
+
+function getFileTime($info) {
+    $time = false;  
+    switch ($info['fileformat']) {
+        case 'jpg':
+            //echo $info[$info['fileformat']]['exif']['FILE']['FileDateTime'] . "\n";
+            if (!isset($info[$info['fileformat']]['exif']['EXIF']['DateTimeOriginal'])) {
+                $time = (int)$info[$info['fileformat']]['exif']['FILE']['FileDateTime'];
+            } else {
+                $time = strtotime($info[$info['fileformat']]['exif']['EXIF']['DateTimeOriginal']);
+            }
+            break;
+        case 'quicktime':
+            $time = $info[$info['fileformat']]['moov']['subatoms'][0]['creation_time_unix'];
+            break;
+        case 'mov': case 'mp4':
+            $time = strtotime($info['comments']['creation_date'][0]);
+            break;
+        default: case 'mpeg': case 'png': case 'avi': case 'gif':
+            $time = false;
+            break;
+    }
+
+    // Time might be zero if there was a processing error, or false if we intentionally want file mtime
+    if (!$time) {
+        $fstat = stat($file);
+        $time = $fstat['mtime'];
+    }
+
+    return $time;
+}
