@@ -105,12 +105,21 @@ foreach ($files as $file) {
                 $targetName = $opts['target'] . DIRECTORY_SEPARATOR . $targetName;
             }
 
-            if ($opts['dry']) {
-                // just report where we're moving things
-                if ($targetName == '<ignore>') {
-                    echo "  $file $targetName\n";
-                } else {
-                    echo "`$file` -> `$targetName`\n";
+            if ($targetName == '<ignore>') {
+                echo "`$file` <SKIP>\n";
+            } else {
+                echo "`$file` -> `$targetName` ";
+                if (!$opts['dry']) {
+                    $dir = dirname($targetName);
+                    if (!is_dir($dir)) {
+                        @mkdir($dir, 0775, true);
+                    }
+                    if ($opts['action'] == 'copy') {
+                        if (@copy($file, $targetName)) { echo '+'; } else { echo '*'; }
+                    } else {
+                        if (@rename($file, $targetName)) { echo '-'; } else { echo '*'; }
+                    }
+                    echo "\n";
                 }
             }
             break;
