@@ -93,7 +93,7 @@ foreach ($files as $file) {
             } else {
                 $time = getFileTime($info);
                 $targetName = implode(DIRECTORY_SEPARATOR, array(date($opts['dateFormat'], $time), basename($file)));
-                $targets[$targetName]++;
+                @$targets[$targetName]++;
                 
                 if ($targets[$targetName] > 1) {
                     $base = basename($file, '.'.$info['fileformat']);
