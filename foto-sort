@@ -1,5 +1,8 @@
 #!/usr/bin/env php
 <?php
+// Disable notices
+$errorlevel=error_reporting();
+error_reporting($errorlevel & ~E_NOTICE);
 
 set_include_path(get_include_path() . PATH_SEPARATOR . __DIR__ . '/lib');
 
@@ -25,7 +28,7 @@ $opts = getopts($optArray, $argv);
 //$file = implode(' ', $argv);
 $file = $opts['cmdline'][0];
 
-if (!$opts['dateFormat']) {
+if (!isset($opts['dateFormat'])) {
     $opts['dateFormat'] = 'Y/m';
 }
 
@@ -93,7 +96,7 @@ foreach ($files as $file) {
             } else {
                 $time = getFileTime($info);
                 $targetName = implode(DIRECTORY_SEPARATOR, array(date($opts['dateFormat'], $time), basename($file)));
-                @$targets[$targetName]++;
+                $targets[$targetName]++;
                 
                 if ($targets[$targetName] > 1) {
                     $base = basename($file, '.'.$info['fileformat']);
@@ -119,8 +122,8 @@ foreach ($files as $file) {
                     } else {
                         if (@rename($file, $targetName)) { echo '-'; } else { echo '*'; }
                     }
-                    echo "\n";
                 }
+                echo "\n";
             }
             break;
         default:
