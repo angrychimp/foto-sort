@@ -43,7 +43,7 @@ if (!file_exists($file)) {
 
 $files = array();
 if (!is_dir($file)) {
-    $files[basename($file)] = array($file);
+    $files[] = $file;
 } else {
     $dir = new RecursiveDirectoryIterator($file);
     $iter = new RecursiveIteratorIterator($dir);
@@ -122,6 +122,8 @@ foreach ($files as $file) {
                     } else {
                         if (@rename($file, $targetName)) { echo '-'; } else { echo '*'; }
                     }
+                    // Preserve mtime
+                    touch($targetName, $time);
                 }
                 echo "\n";
             }
@@ -162,7 +164,7 @@ function getFileTime($info) {
 
     // Time might be zero if there was a processing error, or false if we intentionally want file mtime
     if (!$time) {
-        $fstat = stat($file);
+        $fstat = stat($info['filenamepath']);
         $time = $fstat['mtime'];
     }
 
