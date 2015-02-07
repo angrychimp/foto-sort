@@ -1,5 +1,8 @@
 #!/usr/bin/env php
 <?php
+// Disable notices
+$errorlevel=error_reporting();
+error_reporting($errorlevel & ~E_NOTICE);
 
 set_include_path(get_include_path() . PATH_SEPARATOR . __DIR__ . '/lib');
 
@@ -25,7 +28,7 @@ $opts = getopts($optArray, $argv);
 //$file = implode(' ', $argv);
 $file = $opts['cmdline'][0];
 
-if (!$opts['dateFormat']) {
+if (!isset($opts['dateFormat'])) {
     $opts['dateFormat'] = 'Y/m';
 }
 
@@ -40,7 +43,7 @@ if (!file_exists($file)) {
 
 $files = array();
 if (!is_dir($file)) {
-    $files[basename($file)] = array($file);
+    $files[] = $file;
 } else {
     $dir = new RecursiveDirectoryIterator($file);
     $iter = new RecursiveIteratorIterator($dir);
@@ -124,8 +127,10 @@ foreach ($files as $file) {
                     } else {
                         if (@rename($file, $targetName)) { echo '-'; } else { echo '*'; }
                     }
-                    echo "\n";
+                    // Preserve mtime
+                    touch($targetName, $time);
                 }
+                echo "\n";
             }
             break;
         default:
@@ -168,7 +173,7 @@ function getFileTime($info) {
 
     // Time might be zero if there was a processing error, or false if we intentionally want file mtime
     if (!$time) {
-        $fstat = stat($file);
+        $fstat = stat($info['filenamepath']);
         $time = $fstat['mtime'];
     }
 
