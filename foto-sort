@@ -78,6 +78,7 @@ if ($opts['action'] == 'copy' || $opts['action'] == 'move') {
 }
 
 $id = new getID3();
+$hashes = array();
 foreach ($files as $file) {
     $info = @$id->analyze($file);
     @getid3_lib::CopyTagsToComments($info);
@@ -85,6 +86,10 @@ foreach ($files as $file) {
     switch ($opts['action']) {
         case 'show': case 'info': case 'show-info':
             var_dump($info);
+            break;
+        case 'dedupe':
+            // create a list of image hashes, with subentries ordered by date
+
             break;
         case 'move': case 'copy':
             $targetName = '';
@@ -133,6 +138,10 @@ foreach ($files as $file) {
             echo implode("\t", $out) . "\n";
             break;
     }
+}
+
+function getImageHash($info) {
+    
 }
 
 function getFileTime($info) {
